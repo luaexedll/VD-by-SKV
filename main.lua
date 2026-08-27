@@ -16,9 +16,8 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999999
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-ScreenGui.Parent = CoreGui -- Инъекция напрямую в CoreGui гарантирует работу поверх меню игры
+ScreenGui.Parent = CoreGui
 
--- Анимация при запуске
 local IntroFrame = Instance.new("Frame")
 IntroFrame.Size = UDim2.new(1, 0, 1, 0)
 IntroFrame.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
@@ -252,13 +251,61 @@ local function CreateToggle(parent, tabId, text, callback)
     end)
 end
 
--- Создаем вкладки
+local function CreateColorPicker(parent, tabId, text, defaultColor, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 38)
+    Frame.BackgroundColor3 = Color3.fromRGB(22, 25, 33)
+    Frame.BorderSizePixel = 0
+    Frame.Parent = parent
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Frame
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -50, 1, 0)
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Font = Enum.Font.GothamMedium
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(210, 220, 235)
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+
+    table.insert(AllToggles, {Frame = Frame, TabId = tabId, Name = text:lower()})
+
+    local ColorBtn = Instance.new("TextButton")
+    ColorBtn.Size = UDim2.new(0, 30, 0, 20)
+    ColorBtn.Position = UDim2.new(1, -42, 0.5, -10)
+    ColorBtn.BackgroundColor3 = defaultColor
+    ColorBtn.Text = ""
+    ColorBtn.Parent = Frame
+
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 4)
+    BtnCorner.Parent = ColorBtn
+
+    local colors = {
+        Color3.fromRGB(255, 50, 50),
+        Color3.fromRGB(50, 255, 50),
+        Color3.fromRGB(50, 150, 255),
+        Color3.fromRGB(255, 255, 50)
+    }
+    local index = 1
+    ColorBtn.MouseButton1Click:Connect(function()
+        index = index % #colors + 1
+        local newCol = colors[index]
+        ColorBtn.BackgroundColor3 = newCol
+        pcall(function() callback(newCol) end)
+    end)
+end
+
 local visualPage = CreateTab("visual", "visual")
 local miscPage = CreateTab("misc", "misc")
 local playerPage = CreateTab("player", "player")
 local helpPage = CreateTab("Help", "help")
 
--- Вкладка Help
 local CreatorFrame = Instance.new("Frame")
 CreatorFrame.Size = UDim2.new(1, 0, 0, 100)
 CreatorFrame.BackgroundColor3 = Color3.fromRGB(22, 25, 33)
@@ -283,15 +330,39 @@ CreatorText.Parent = CreatorFrame
 
 table.insert(AllToggles, {Frame = CreatorFrame, TabId = "help", Name = "telegram @whoisskv создатель пишите по вопросам help"})
 
--- Функции
-CreateToggle(visualPage, "visual", "Player ESP Box", function(state)
+CreateToggle(visualPage, "visual", "Player Chams (Highlight)", function(state)
     local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/esp.lua"))()
-    if esp and esp.ToggleBox then esp.ToggleBox(state) end
+    if esp and esp.ToggleChams then esp.ToggleChams(state) end
 end)
 
 CreateToggle(visualPage, "visual", "Player Names & Distance", function(state)
     local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/esp.lua"))()
     if esp and esp.ToggleNames then esp.ToggleNames(state) end
+end)
+
+CreateColorPicker(visualPage, "visual", "Killer Color", Color3.fromRGB(255, 50, 50), function(col)
+    local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/esp.lua"))()
+    if esp and esp.SetKillerColor then esp.SetKillerColor(col) end
+end)
+
+CreateColorPicker(visualPage, "visual", "Survivor Color", Color3.fromRGB(50, 255, 50), function(col)
+    local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/esp.lua"))()
+    if esp and esp.SetSurvivorColor then esp.SetSurvivorColor(col) end
+end)
+
+CreateToggle(visualPage, "visual", "Generators ESP (% & Progress)", function(state)
+    local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/esp.lua"))()
+    if esp and esp.ToggleGenerators then esp.ToggleGenerators(state) end
+end)
+
+CreateToggle(visualPage, "visual", "Pallets ESP", function(state)
+    local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/esp.lua"))()
+    if esp and esp.TogglePallets then esp.TogglePallets(state) end
+end)
+
+CreateToggle(visualPage, "visual", "Doctor Zombies ESP", function(state)
+    local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/esp.lua"))()
+    if esp and esp.ToggleZombies then esp.ToggleZombies(state) end
 end)
 
 CreateToggle(miscPage, "misc", "Detect Killer", function(state)
@@ -304,7 +375,6 @@ CreateToggle(playerPage, "player", "Auto Throw Dagger", function(state)
     if auto and auto.Toggle then auto.Toggle(state) end
 end)
 
--- Глобальный поиск
 SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
     local query = SearchBox.Text:lower()
     if query == "" then return end
@@ -335,7 +405,6 @@ if TabButtons[1] then
     Pages[TabButtons[1].ID].Visible = true
 end
 
--- Безопасное перетаскивание без "прилипания"
 local dragging = false
 local dragInput, dragStart, startPos
 
@@ -371,7 +440,6 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- Открытие/закрытие по Правый Shift
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.RightShift then
         MainFrame.Visible = not MainFrame.Visible
