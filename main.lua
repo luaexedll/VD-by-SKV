@@ -1,8 +1,7 @@
 local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
+local CoreGui = Service or game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui") or CoreGui
@@ -14,11 +13,41 @@ end
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "VDCheatHub"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999999
+ScreenGui.IgnoreGuiInset = true
 ScreenGui.Parent = PlayerGui
 
+-- Анимация при запуске
+local IntroFrame = Instance.new("Frame")
+IntroFrame.Size = UDim2.new(1, 0, 1, 0)
+IntroFrame.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
+IntroFrame.BorderSizePixel = 0
+IntroFrame.ZIndex = 100
+IntroFrame.Parent = ScreenGui
+
+local IntroText = Instance.new("TextLabel")
+IntroText.Size = UDim2.new(1, 0, 1, 0)
+IntroText.BackgroundTransparency = 1
+IntroText.Font = Enum.Font.GothamBold
+IntroText.Text = "SVK Main"
+IntroText.TextColor3 = Color3.fromRGB(40, 80, 255)
+IntroText.TextSize = 32
+IntroText.TextTransparency = 1
+IntroText.ZIndex = 101
+IntroText.Parent = IntroFrame
+
+task.spawn(function()
+    TweenService:Create(IntroText, TweenInfo.new(0.25), {TextTransparency = 0}):Play()
+    task.wait(0.5)
+    TweenService:Create(IntroText, TweenInfo.new(0.25), {TextTransparency = 1}):Play()
+    TweenService:Create(IntroFrame, TweenInfo.new(0.25), {BackgroundTransparency = 1}):Play()
+    task.wait(0.25)
+    IntroFrame:Destroy()
+end)
+
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 520, 0, 360)
-MainFrame.Position = UDim2.new(0.5, -260, 0.5, -180)
+MainFrame.Size = UDim2.new(0, 520, 0, 420)
+MainFrame.Position = UDim2.new(0.5, -260, 0.5, -210)
 MainFrame.BackgroundColor3 = Color3.fromRGB(16, 18, 24)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -50,7 +79,7 @@ TopFix.BorderSizePixel = 0
 TopFix.Parent = TopBar
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(0, 200, 1, 0)
+Title.Size = UDim2.new(0, 150, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
@@ -59,6 +88,28 @@ Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
+
+local SearchBox = Instance.new("TextBox")
+SearchBox.Size = UDim2.new(0, 160, 0, 24)
+SearchBox.Position = UDim2.new(1, -175, 0.5, -12)
+SearchBox.BackgroundColor3 = Color3.fromRGB(16, 18, 24)
+SearchBox.BorderSizePixel = 0
+SearchBox.Font = Enum.Font.GothamMedium
+SearchBox.PlaceholderText = "Поиск по функциям..."
+SearchBox.PlaceholderColor3 = Color3.fromRGB(90, 100, 120)
+SearchBox.Text = ""
+SearchBox.TextColor3 = Color3.fromRGB(210, 220, 235)
+SearchBox.TextSize = 12
+SearchBox.Parent = TopBar
+
+local SearchCorner = Instance.new("UICorner")
+SearchCorner.CornerRadius = UDim.new(0, 4)
+SearchCorner.Parent = SearchBox
+
+local SearchPadding = Instance.new("UIPadding")
+SearchPadding.PaddingLeft = UDim.new(0, 8)
+SearchPadding.PaddingRight = UDim.new(0, 8)
+SearchPadding.Parent = SearchBox
 
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 140, 1, -40)
@@ -86,6 +137,8 @@ TabsPadding.Parent = Sidebar
 
 local Pages = {}
 local TabButtons = {}
+local AllToggles = {}
+local ActiveTabId = nil
 
 local function CreateTab(name, id)
     local TabBtn = Instance.new("TextButton")
@@ -126,6 +179,8 @@ local function CreateTab(name, id)
     table.insert(TabButtons, {Btn = TabBtn, ID = id})
 
     TabBtn.MouseButton1Click:Connect(function()
+        SearchBox.Text = ""
+        ActiveTabId = id
         for _, t in ipairs(TabButtons) do
             TweenService:Create(t.Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(25, 29, 38), TextColor3 = Color3.fromRGB(130, 140, 160)}):Play()
             Pages[t.ID].Visible = false
@@ -137,7 +192,7 @@ local function CreateTab(name, id)
     return Page
 end
 
-local function CreateToggle(parent, text, callback)
+local function CreateToggle(parent, tabId, text, callback)
     local Toggle = Instance.new("Frame")
     Toggle.Size = UDim2.new(1, 0, 0, 38)
     Toggle.BackgroundColor3 = Color3.fromRGB(22, 25, 33)
@@ -158,6 +213,8 @@ local function CreateToggle(parent, text, callback)
     Label.TextSize = 13
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Toggle
+
+    table.insert(AllToggles, {Frame = Toggle, TabId = tabId, Name = text:lower()})
 
     local Switch = Instance.new("TextButton")
     Switch.Size = UDim2.new(0, 36, 0, 20)
@@ -195,49 +252,96 @@ local function CreateToggle(parent, text, callback)
 end
 
 -- Создаем вкладки
-local espPage = CreateTab("Visuals (ESP)", "esp")
-local killerPage = CreateTab("Next Killer", "killer")
-local autoPage = CreateTab("Auto Dagger", "auto")
+local visualPage = CreateTab("visual", "visual")
+local miscPage = CreateTab("misc", "misc")
+local playerPage = CreateTab("player", "player")
+local helpPage = CreateTab("Help", "help")
 
--- Наполняем вкладку ESP
-CreateToggle(espPage, "Player ESP Box", function(state)
+-- Вкладка Help
+local CreatorFrame = Instance.new("Frame")
+CreatorFrame.Size = UDim2.new(1, 0, 0, 100)
+CreatorFrame.BackgroundColor3 = Color3.fromRGB(22, 25, 33)
+CreatorFrame.BorderSizePixel = 0
+CreatorFrame.Parent = helpPage
+
+local CreatorCorner = Instance.new("UICorner")
+CreatorCorner.CornerRadius = UDim.new(0, 6)
+CreatorCorner.Parent = CreatorFrame
+
+local CreatorText = Instance.new("TextLabel")
+CreatorText.Size = UDim2.new(1, -20, 1, 0)
+CreatorText.Position = UDim2.new(0, 10, 0, 0)
+CreatorText.BackgroundTransparency = 1
+CreatorText.Font = Enum.Font.GothamMedium
+CreatorText.Text = "Telegram: @whoisSKV\n\nПишите по вопросам."
+CreatorText.TextColor3 = Color3.fromRGB(210, 220, 235)
+CreatorText.TextSize = 14
+CreatorText.TextXAlignment = Enum.TextXAlignment.Left
+CreatorText.TextYAlignment = Enum.TextYAlignment.Center
+CreatorText.Parent = CreatorFrame
+
+table.insert(AllToggles, {Frame = CreatorFrame, TabId = "help", Name = "telegram @whoisskv создатель пишите по вопросам help"})
+
+-- Функции для Visuals (ESP)
+CreateToggle(visualPage, "visual", "Player ESP Box", function(state)
     local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/esp.lua"))()
     if esp and esp.ToggleBox then esp.ToggleBox(state) end
 end)
 
-CreateToggle(espPage, "Player Names", function(state)
+CreateToggle(visualPage, "visual", "Player Names & Distance", function(state)
     local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/esp.lua"))()
     if esp and esp.ToggleNames then esp.ToggleNames(state) end
 end)
 
--- Наполняем вкладку Next Killer
-CreateToggle(killerPage, "Detect Killer", function(state)
+-- Остальной функционал
+CreateToggle(miscPage, "misc", "Detect Killer", function(state)
     local killer = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/nextKiller.lua"))()
     if killer and killer.Toggle then killer.Toggle(state) end
 end)
 
--- Наполняем вкладку Auto Dagger
-CreateToggle(autoPage, "Auto Throw Dagger", function(state)
+CreateToggle(playerPage, "player", "Auto Throw Dagger", function(state)
     local auto = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/autoDagger.lua"))()
     if auto and auto.Toggle then auto.Toggle(state) end
 end)
 
--- Выделяем первую вкладку по умолчанию
+-- Глобальный поиск
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local query = SearchBox.Text:lower()
+    if query == "" then return end
+
+    for _, item in ipairs(AllToggles) do
+        if item.Name:find(query) then
+            if ActiveTabId ~= item.TabId then
+                ActiveTabId = item.TabId
+                for _, t in ipairs(TabButtons) do
+                    if t.ID == item.TabId then
+                        TweenService:Create(t.Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 80, 255), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+                    else
+                        TweenService:Create(t.Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(25, 29, 38), TextColor3 = Color3.fromRGB(130, 140, 160)}):Play()
+                    end
+                end
+                for id, page in pairs(Pages) do
+                    page.Visible = (id == item.TabId)
+                end
+            end
+            break
+        end
+    end
+end)
+
 if TabButtons[1] then
+    ActiveTabId = TabButtons[1].ID
     TweenService:Create(TabButtons[1].Btn, TweenInfo.new(0), {BackgroundColor3 = Color3.fromRGB(40, 80, 255), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
     Pages[TabButtons[1].ID].Visible = true
 end
 
--- Перетаскивание окна мышкой
+-- Перетаскивание
 local dragging, dragInput, dragStart, startPos
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
     end
 end)
 
@@ -249,5 +353,11 @@ UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
         MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        MainFrame.Visible = not MainFrame.Visible
     end
 end)
