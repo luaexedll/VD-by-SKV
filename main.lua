@@ -18,33 +18,6 @@ ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 ScreenGui.Parent = CoreGui
 
-local IntroFrame = Instance.new("Frame")
-IntroFrame.Size = UDim2.new(1, 0, 1, 0)
-IntroFrame.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
-IntroFrame.BorderSizePixel = 0
-IntroFrame.ZIndex = 100
-IntroFrame.Parent = ScreenGui
-
-local IntroText = Instance.new("TextLabel")
-IntroText.Size = UDim2.new(1, 0, 1, 0)
-IntroText.BackgroundTransparency = 1
-IntroText.Font = Enum.Font.GothamBold
-IntroText.Text = "SVK Main"
-IntroText.TextColor3 = Color3.fromRGB(40, 80, 255)
-IntroText.TextSize = 32
-IntroText.TextTransparency = 1
-IntroText.ZIndex = 101
-IntroText.Parent = IntroFrame
-
-task.spawn(function()
-    TweenService:Create(IntroText, TweenInfo.new(0.25), {TextTransparency = 0}):Play()
-    task.wait(0.5)
-    TweenService:Create(IntroText, TweenInfo.new(0.25), {TextTransparency = 1}):Play()
-    TweenService:Create(IntroFrame, TweenInfo.new(0.25), {BackgroundTransparency = 1}):Play()
-    task.wait(0.25)
-    IntroFrame:Destroy()
-end)
-
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 520, 0, 420)
 MainFrame.Position = UDim2.new(0.5, -260, 0.5, -210)
