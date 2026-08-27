@@ -16,23 +16,19 @@ local ESP = {
 
 local highlights = {}
 local drawings = {}
-local trackedObjects = {}
+local worldTrackers = {}
 
--- Очистка при выключении
 local function clearPlayer(player)
     if highlights[player] then
         highlights[player]:Destroy()
         highlights[player] = nil
     end
-    if drawings[player] then
-        for _, obj in pairs(drawings[player]) do
-            pcall(function() obj:Remove() end)
-        end
+    if drawings[player] and drawings[player].NameText then
+        drawings[player].NameText:Remove()
         drawings[player] = nil
     end
 end
 
--- Логика игроков (Chams + Ники)
 local function setupPlayer(player)
     if player == LocalPlayer then return end
     
@@ -66,7 +62,8 @@ local function setupPlayer(player)
             highlights[player].Enabled = true
         else
             if highlights[player] then
-                highlights[player].Enabled = false
+                highlights[player]:Destroy()
+                highlights[player] = nil
             end
         end
 
@@ -95,61 +92,67 @@ for _, p in ipairs(Players:GetPlayers()) do setupPlayer(p) end
 Players.PlayerAdded:Connect(setupPlayer)
 Players.PlayerRemoving:Connect(clearPlayer)
 
--- Универсальный сканер мира (Генераторы, Паллеты, Зомби)
-local function trackWorldObjects(filterName, color, textFunc)
-    local list = {}
-    
-    local conn = RunService.RenderStepped:Connect(function()
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if not list[obj] and obj.Name:lower():find(filterName) then
-                local hl = Instance.new("Highlight")
-                hl.Adornee = obj
-                hl.Parent = CoreGui
-                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                hl.FillColor = color
-                hl.OutlineColor = Color3.new(1, 1, 1)
-                
-                local txt = Drawing.new("Text")
-                txt.Size = 12
-                txt.Center = true
-                txt.Outline = true
-                txt.Font = 2
-                txt.Color = color
-                
-                list[obj] = {Highlight = hl, Text = txt}
-            end
-        end
+local function manageWorldTracker(key, filterName, color, textFunc)
+    if ESP[key] then
+        if worldTrackers[key] then return end
+        local list = {}
         
-        for obj, data in pairs(list) do
-            if not obj.Parent then
-                data.Highlight:Destroy()
-                data.Text:Remove()
-                list[obj] = nil
-            else
-                local part = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or obj
-                if part then
-                    local pos, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(part.Position)
-                    if onScreen then
-                        data.Highlight.Enabled = true
-                        data.Text.Text = textFunc(obj)
-                        data.Text.Position = Vector2.new(pos.X, pos.Y)
-                        data.Text.Visible = true
-                    else
-                        data.Highlight.Enabled = false
-                        data.Text.Visible = false
+        local conn = RunService.RenderStepped:Connect(function()
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if not list[obj] and obj.Name:lower():find(filterName) then
+                    local hl = Instance.new("Highlight")
+                    hl.Adornee = obj
+                    hl.Parent = CoreGui
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    hl.FillColor = color
+                    hl.OutlineColor = Color3.new(1, 1, 1)
+                    
+                    local txt = Drawing.new("Text")
+                    txt.Size = 12
+                    txt.Center = true
+                    txt.Outline = true
+                    txt.Font = 2
+                    txt.Color = color
+                    
+                    list[obj] = {Highlight = hl, Text = txt}
+                end
+            end
+            
+            for obj, data in pairs(list) do
+                if not obj.Parent then
+                    data.Highlight:Destroy()
+                    data.Text:Remove()
+                    list[obj] = nil
+                else
+                    local part = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or obj
+                    if part then
+                        local pos, onScreen = Workspace.CurrentCamera:WorldToViewportPoint(part.Position)
+                        if onScreen then
+                            data.Highlight.Enabled = true
+                            data.Text.Text = textFunc(obj)
+                            data.Text.Position = Vector2.new(pos.X, pos.Y)
+                            data.Text.Visible = true
+                        else
+                            data.Highlight.Enabled = false
+                            data.Text.Visible = false
+                        end
                     end
                 end
             end
+        end)
+        
+        worldTrackers[key] = {Connection = conn, Objects = list}
+    else
+        if worldTrackers[key] then
+            worldTrackers[key].Connection:Disconnect()
+            for _, data in pairs(worldTrackers[key].Objects) do
+                pcall(function() data.Highlight:Destroy() end)
+                pcall(function() data.Text:Remove() end)
+            end
+            worldTrackers[key] = nil
         end
-    end)
-    
-    return {
-        Connection = conn,
-        Objects = list
-    }
+    end
 end
-
-local gensTracker, palletsTracker, zombiesTracker
 
 function ESP.ToggleChams(state) ESP.ChamsEnabled = state end
 function ESP.ToggleNames(state) ESP.NamesEnabled = state end
@@ -158,59 +161,26 @@ function ESP.SetSurvivorColor(col) ESP.SurvivorColor = col end
 
 function ESP.ToggleGenerators(state)
     ESP.GeneratorsEnabled = state
-    if state then
-        gensTracker = trackWorldObjects("generator", Color3.fromRGB(255, 165, 0), function(obj)
-            local progress = obj:GetAttribute("Progress") or obj:GetAttribute("RepairProgress") or 0
-            local percent = math.clamp(math.floor(progress), 0, 100)
-            local left = math.max(0, 100 - percent)
-            return string.format("Generator\n[%d%% | Осталось: %d%%]", percent, left)
-        end)
-    else
-        if gensTracker then
-            gensTracker.Connection:Disconnect()
-            for _, data in pairs(gensTracker.Objects) do
-                data.Highlight:Destroy()
-                data.Text:Remove()
-            end
-            gensTracker = nil
-        end
-    end
+    manageWorldTracker("GeneratorsEnabled", "generator", Color3.fromRGB(255, 165, 0), function(obj)
+        local progress = obj:GetAttribute("Progress") or obj:GetAttribute("RepairProgress") or 0
+        local percent = math.clamp(math.floor(progress), 0, 100)
+        local left = math.max(0, 100 - percent)
+        return string.format("Generator\n[%d%% | Осталось: %d%%]", percent, left)
+    end)
 end
 
 function ESP.TogglePallets(state)
     ESP.PalletsEnabled = state
-    if state then
-        palletsTracker = trackWorldObjects("pallet", Color3.fromRGB(0, 255, 255), function()
-            return "Pallet"
-        end)
-    else
-        if palletsTracker then
-            palletsTracker.Connection:Disconnect()
-            for _, data in pairs(palletsTracker.Objects) do
-                data.Highlight:Destroy()
-                data.Text:Remove()
-            end
-            palletsTracker = nil
-        end
-    end
+    manageWorldTracker("PalletsEnabled", "pallet", Color3.fromRGB(0, 255, 255), function()
+        return "Pallet"
+    end)
 end
 
 function ESP.ToggleZombies(state)
     ESP.ZombiesEnabled = state
-    if state then
-        zombiesTracker = trackWorldObjects("zombie", Color3.fromRGB(150, 0, 255), function()
-            return "Doctor Zombie"
-        end)
-    else
-        if zombiesTracker then
-            zombiesTracker.Connection:Disconnect()
-            for _, data in pairs(zombiesTracker.Objects) do
-                data.Highlight:Destroy()
-                data.Text:Remove()
-            end
-            zombiesTracker = nil
-        end
-    end
+    manageWorldTracker("ZombiesEnabled", "zombie", Color3.fromRGB(150, 0, 255), function()
+        return "Doctor Zombie"
+    end)
 end
 
 return ESP
