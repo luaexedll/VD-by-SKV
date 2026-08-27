@@ -1,5 +1,5 @@
 local Players = game:GetService("Players")
-local CoreGui = Service or game:GetService("CoreGui")
+local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
@@ -15,7 +15,8 @@ ScreenGui.Name = "VDCheatHub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999999
 ScreenGui.IgnoreGuiInset = true
-ScreenGui.Parent = PlayerGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+ScreenGui.Parent = CoreGui -- Инъекция напрямую в CoreGui гарантирует работу поверх меню игры
 
 -- Анимация при запуске
 local IntroFrame = Instance.new("Frame")
@@ -282,7 +283,7 @@ CreatorText.Parent = CreatorFrame
 
 table.insert(AllToggles, {Frame = CreatorFrame, TabId = "help", Name = "telegram @whoisskv создатель пишите по вопросам help"})
 
--- Функции для Visuals (ESP)
+-- Функции
 CreateToggle(visualPage, "visual", "Player ESP Box", function(state)
     local esp = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/esp.lua"))()
     if esp and esp.ToggleBox then esp.ToggleBox(state) end
@@ -293,7 +294,6 @@ CreateToggle(visualPage, "visual", "Player Names & Distance", function(state)
     if esp and esp.ToggleNames then esp.ToggleNames(state) end
 end)
 
--- Остальной функционал
 CreateToggle(miscPage, "misc", "Detect Killer", function(state)
     local killer = loadstring(game:HttpGet("https://raw.githubusercontent.com/luaexedll/VD-by-SKV/refs/heads/main/nextKiller.lua"))()
     if killer and killer.Toggle then killer.Toggle(state) end
@@ -335,27 +335,43 @@ if TabButtons[1] then
     Pages[TabButtons[1].ID].Visible = true
 end
 
--- Перетаскивание
-local dragging, dragInput, dragStart, startPos
+-- Безопасное перетаскивание без "прилипания"
+local dragging = false
+local dragInput, dragStart, startPos
+
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
     end
-end)
-
-TopBar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        MainFrame.Position = UDim2.new(
+            startPos.X.Scale, 
+            startPos.X.Offset + delta.X, 
+            startPos.Y.Scale, 
+            startPos.Y.Offset + delta.Y
+        )
     end
 end)
 
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- Открытие/закрытие по Правый Shift
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.RightShift then
         MainFrame.Visible = not MainFrame.Visible
